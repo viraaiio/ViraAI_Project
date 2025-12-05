@@ -6,7 +6,6 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "npm run lint && npm run unit",
     "lint": "eslint .",
     "unit": "jest",
     "ci": "npm run lint && npm run unit && npm run build",

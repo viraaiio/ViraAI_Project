@@ -1,29 +1,32 @@
-/**
- * ViraAI Project - Phase 0
- * Author: Lead Architect & Security Mentor
- * Purpose: Foundational setup for enterprise AI platform (viraai.io)
- * Notes: Clean, secure, and CI/CD ready
- */
+name: CI
 
-'use strict';
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
-// Initial log to verify setup
-console.log("ViraAI Phase 0: Environment initialized successfully.");
+jobs:
+  test:
+    runs-on: ubuntu-latest
 
-// Example: Basic server setup placeholder (can expand in later phases)
-const express = require('express');
-const app = express();
-const PORT = process.env.PORT || 3000;
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-// Basic route
-app.get('/', (req, res) => {
-  res.send('Welcome to ViraAI Phase 0!');
-});
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
 
-// Start server
-app.listen(PORT, () => {
-  console.log(ViraAI server running on port ${PORT});
-});
+      - name: Install dependencies
+        run: npm ci
 
-// Export app for unit testing
-module.exports = app;
+      - name: Run lint
+        run: npx eslint .
+
+      - name: Run unit tests
+        run: npx jest
+
+      - name: Build placeholder
+        run: echo "Build process placeholder for Phase 0"

@@ -1,5 +1,27 @@
-<<<<<<< HEAD
-console.log("ViraAI is running") 
-=======
-console.log("ViraAI Phase 0 initialized successfully.");
->>>>>>> c7aa65eb316b7c0af43c4ec064c0321016c07941
+'use strict';
+
+// ViraAI Project - Phase 0
+// Author: Lead Architect & Security Mentor
+// Purpose: Foundational setup for enterprise AI platform (viraai.io)
+// Notes: Clean, secure, CI/CD-ready
+
+// Initial log to verify setup
+console.log("ViraAI Phase 0: Environment initialized successfully.");
+
+// Basic server setup
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Basic route
+app.get('/', (req, res) => {
+  res.send('Welcome to ViraAI Phase 0!');
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(ViraAI server running on port ${PORT});
+});
+
+// Export app for unit testing
+module.exports = app;

@@ -1,22 +1,25 @@
 {
-  "name": "viraai_project",
+  "name": "viraai-project",
   "version": "0.0.1",
-  "description": "ViraAI Phase 0: Enterprise AI platform foundational setup for global scalability and revenue optimization.",
+  "description": "ViraAI Phase 0: Secure, scalable, enterprise-grade foundational setup for the global AI platform.",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "test": "npm run lint && npm run unit",
-    "lint": "eslint .",
-    "unit": "jest",
+    "lint": "eslint . --ext .js",
+    "unit": "jest --passWithNoTests",
     "ci": "npm run lint && npm run unit && npm run build",
-    "build": "echo 'Build process placeholder for Phase 0'"
+    "build": "echo 'Phase 0 build placeholder - no artifacts yet'"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/viraaiio/ViraAI_Project.git"
   },
-  "author": "Lead Architect & Security Mentor",
+  "author": "ViraAI Lead Architect",
   "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {},
   "devDependencies": {
     "eslint": "^8.50.0",

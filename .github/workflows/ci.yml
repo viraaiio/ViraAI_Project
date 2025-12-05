@@ -1,0 +1,75 @@
+name: ViraAI CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  ci:
+    name: Full CI Pipeline
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies (workspaces)
+        run: npm ci --workspaces
+
+      # ---------- STATIC ANALYSIS ----------
+      - name: Lint
+        run: npm run lint --workspaces --if-present
+
+      - name: Type Check
+        run: npm run type-check --workspaces --if-present
+
+      # ---------- TESTS ----------
+      - name: Run Unit Tests
+        run: npm run test --workspaces --if-present
+
+      - name: Run Integration Tests
+        run: npm run test:integration --workspaces --if-present
+
+      # ---------- SECURITY ----------
+      - name: Dependency Vulnerability Scan
+        uses: actions/dependency-review-action@v3
+
+      - name: GitHub CodeQL Security Scan
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+      # ---------- BUILD ----------
+      - name: Build Backend
+        run: npm run build --workspace=apps/backend
+
+      - name: Build Frontend
+        run: npm run build --workspace=apps/frontend
+
+      - name: Build Workers
+        run: npm run build --workspace=apps/workers
+
+      # ---------- SNAPSHOT ARTIFACTS ----------
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: viraai-build-snapshot
+          path: |
+            apps/backend/dist
+            apps/frontend/.next
+            apps/workers/dist

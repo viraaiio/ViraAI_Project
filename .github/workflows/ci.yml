@@ -1,40 +1,29 @@
-name: ViraAI Phase 0 CI/CD
+/**
+ * ViraAI Project - Phase 0
+ * Author: Lead Architect & Security Mentor
+ * Purpose: Foundational setup for enterprise AI platform (viraai.io)
+ * Notes: Clean, secure, and CI/CD ready
+ */
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+'use strict';
 
-jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+// Initial log to verify setup
+console.log("ViraAI Phase 0: Environment initialized successfully.");
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
+// Example: Basic server setup placeholder (can expand in later phases)
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-      - name: Install dependencies
-        run: npm ci
+// Basic route
+app.get('/', (req, res) => {
+  res.send('Welcome to ViraAI Phase 0!');
+});
 
-      - name: Run ESLint
-        run: npx eslint .
-        continue-on-error: false
+// Start server
+app.listen(PORT, () => {
+  console.log(ViraAI server running on port ${PORT});
+});
 
-      - name: Run Unit Tests
-        run: npx jest
-        continue-on-error: false
-
-      - name: Build Placeholder
-        run: echo "Build process placeholder for Phase 0"
-
-      - name: Create Snapshot Backup
-        run: |
-          TIMESTAMP=$(date +%Y%m%d%H%M%S)
-          mkdir -p backups
-          tar -czf backups/viraai_phase0_snapshot_$TIMESTAMP.tar.gz .
-        shell: bash
+// Export app for unit testing
+module.exports = app;

@@ -1,4 +1,4 @@
-name: CI
+name: ViraAI Phase 0 CI/CD
 
 on:
   push:
@@ -7,11 +7,10 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  build-and-test:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Setup Node.js
@@ -22,11 +21,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run lint
+      - name: Run ESLint
         run: npx eslint .
+        continue-on-error: false
 
-      - name: Run unit tests
+      - name: Run Unit Tests
         run: npx jest
+        continue-on-error: false
 
-      - name: Build placeholder
+      - name: Build Placeholder
         run: echo "Build process placeholder for Phase 0"
+
+      - name: Create Snapshot Backup
+        run: |
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          mkdir -p backups
+          tar -czf backups/viraai_phase0_snapshot_$TIMESTAMP.tar.gz .
+        shell: bash

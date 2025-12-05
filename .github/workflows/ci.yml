@@ -1,56 +1,34 @@
-name: ViraAI Phase 0 CI/CD
+name: CI
 
 on:
-push:
-branches: [main]
-pull_request:
-branches: [main]
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
-build-test-deploy:
-runs-on: ubuntu-latest
-steps:
-- name: Checkout repository
-uses: actions/checkout@v3
+  build-and-test:
+    runs-on: ubuntu-latest
 
-  - name: Setup Node.js
-    uses: actions/setup-node@v3
-    with:
-      node-version: '18'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-  - name: Install dependencies
-    run: npm ci
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
 
-  - name: Lint code
-    run: npm run lint
+      - name: Install dependencies
+        run: npm install
 
-  - name: Run unit tests
-    run: npm run unit
+      - name: Run lint
+        run: npm run lint
 
-  - name: Build project
-    run: npm run build
+      - name: Run unit tests
+        run: npm run unit
 
-  - name: Deploy to Replit/Server
-    env:
-      SERVER_HOST: ${{ secrets.SERVER_HOST }}
-      SERVER_USER: ${{ secrets.SERVER_USER }}
-      SERVER_KEY: ${{ secrets.SERVER_KEY }}
-    run: |
-      echo "🔹 Deploying to server..."
-      ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_HOST "mkdir -p ~/ViraAI_Project"
-      scp -r ./* $SERVER_USER@$SERVER_HOST:~/ViraAI_Project/
-      ssh $SERVER_USER@$SERVER_HOST "cd ~/ViraAI_Project && npm install --production && pm2 restart all || echo 'PM2 process not found, skipping'"
-
-  - name: Automated Backup to S3/Backblaze
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      BACKUP_BUCKET: ${{ secrets.BACKUP_BUCKET }}
-    run: |
-      echo "🔹 Running automated backup..."
-      tar -czf viraai_backup_$(date +%F_%H-%M-%S).tar.gz ./
-      aws s3 cp viraai_backup_*.tar.gz s3://$BACKUP_BUCKET/phase0/ --storage-class STANDARD_IA
-      echo "✅ Backup completed"
-
-  - name: CI/CD Success Message
-    run: echo "✅ ViraAI Phase 0 CI/CD completed successfully."
+      - name: Build project
+        run: npm run build

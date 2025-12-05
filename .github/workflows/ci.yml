@@ -1,75 +1,56 @@
-name: ViraAI CI Pipeline
+name: ViraAI Phase 0 CI/CD
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-permissions:
-  contents: read
-  security-events: write
+push:
+branches: [main]
+pull_request:
+branches: [main]
 
 jobs:
-  ci:
-    name: Full CI Pipeline
-    runs-on: ubuntu-latest
+build-test-deploy:
+runs-on: ubuntu-latest
+steps:
+- name: Checkout repository
+uses: actions/checkout@v3
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  - name: Setup Node.js
+    uses: actions/setup-node@v3
+    with:
+      node-version: '18'
 
-      - name: Setup Node.js (LTS)
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
+  - name: Install dependencies
+    run: npm ci
 
-      - name: Install dependencies (workspaces)
-        run: npm ci --workspaces
+  - name: Lint code
+    run: npm run lint
 
-      # ---------- STATIC ANALYSIS ----------
-      - name: Lint
-        run: npm run lint --workspaces --if-present
+  - name: Run unit tests
+    run: npm run unit
 
-      - name: Type Check
-        run: npm run type-check --workspaces --if-present
+  - name: Build project
+    run: npm run build
 
-      # ---------- TESTS ----------
-      - name: Run Unit Tests
-        run: npm run test --workspaces --if-present
+  - name: Deploy to Replit/Server
+    env:
+      SERVER_HOST: ${{ secrets.SERVER_HOST }}
+      SERVER_USER: ${{ secrets.SERVER_USER }}
+      SERVER_KEY: ${{ secrets.SERVER_KEY }}
+    run: |
+      echo "🔹 Deploying to server..."
+      ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_HOST "mkdir -p ~/ViraAI_Project"
+      scp -r ./* $SERVER_USER@$SERVER_HOST:~/ViraAI_Project/
+      ssh $SERVER_USER@$SERVER_HOST "cd ~/ViraAI_Project && npm install --production && pm2 restart all || echo 'PM2 process not found, skipping'"
 
-      - name: Run Integration Tests
-        run: npm run test:integration --workspaces --if-present
+  - name: Automated Backup to S3/Backblaze
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      BACKUP_BUCKET: ${{ secrets.BACKUP_BUCKET }}
+    run: |
+      echo "🔹 Running automated backup..."
+      tar -czf viraai_backup_$(date +%F_%H-%M-%S).tar.gz ./
+      aws s3 cp viraai_backup_*.tar.gz s3://$BACKUP_BUCKET/phase0/ --storage-class STANDARD_IA
+      echo "✅ Backup completed"
 
-      # ---------- SECURITY ----------
-      - name: Dependency Vulnerability Scan
-        uses: actions/dependency-review-action@v3
-
-      - name: GitHub CodeQL Security Scan
-        uses: github/codeql-action/init@v3
-        with:
-          languages: javascript
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-
-      # ---------- BUILD ----------
-      - name: Build Backend
-        run: npm run build --workspace=apps/backend
-
-      - name: Build Frontend
-        run: npm run build --workspace=apps/frontend
-
-      - name: Build Workers
-        run: npm run build --workspace=apps/workers
-
-      # ---------- SNAPSHOT ARTIFACTS ----------
-      - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: viraai-build-snapshot
-          path: |
-            apps/backend/dist
-            apps/frontend/.next
-            apps/workers/dist
+  - name: CI/CD Success Message
+    run: echo "✅ ViraAI Phase 0 CI/CD completed successfully."

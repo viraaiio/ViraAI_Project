@@ -25,11 +25,11 @@
 ### Server Configuration
 - **Host**: 0.0.0.0 (required for Replit proxy)
 - **Port**: 5000 (default, configurable via PORT env var)
-- **Workflow**: "ViraAI Server" running `node index.js`
+- **Workflow**: "ViraAI Server" running `npm run dev` (with nodemon hot-reload)
 
 ### Available Scripts
 - `npm start` - Start production server
-- `npm run dev` - Development mode (note: nodemon has permission issues, use workflow instead)
+- `npm run dev` - Development mode with hot-reload (nodemon)
 - `npm run lint` - Run ESLint
 - `npm run test` - Run Jest tests
 - `npm run ci` - Run linting and tests
@@ -49,7 +49,7 @@
 ## Development Notes
 - The server must bind to `0.0.0.0` to work with Replit's proxy system
 - Port 5000 is the only port exposed for web previews in Replit
-- Nodemon has permission issues in the current environment; use the workflow which runs `node index.js` directly
+- Nodemon is configured for hot-reload during development
 
 ## Future Development (Phase 0 Roadmap)
 1. AI Video Production

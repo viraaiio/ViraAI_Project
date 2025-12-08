@@ -6,7 +6,8 @@
 
 const express = require('express');
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
+const HOST = '0.0.0.0';
 
 // Basic route
 app.get('/', (req, res) => {
@@ -14,8 +15,8 @@ app.get('/', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, function() {
-  console.log('ViraAI server running on port ' + PORT);
+app.listen(PORT, HOST, function() {
+  console.log('ViraAI server running on ' + HOST + ':' + PORT);
 });
 
 // Export app for unit testing

@@ -1,0 +1,30 @@
+groups:
+  - name: viraai-backup-alerts
+    interval: 30s
+    rules:
+      - alert: BackupFailuresHigh
+        expr: increase(viraai_backup_failure_total[1h]) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backup failures detected"
+          description: "One or more backup jobs failed in the last hour."
+
+      - alert: BackupTooOld
+        expr: (time() - max(viraai_backup_last_timestamp)) > 21600
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backup freshness SLO violated"
+          description: "No successful backup in the last 6 hours."
+
+      - alert: RestoreDryRunTooOld
+        expr: (time() - max(viraai_restore_last_dry_run_timestamp)) > 172800
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Restore Dry Run SLO violated"
+          description: "No successful restore dry run in the last 48 hours."

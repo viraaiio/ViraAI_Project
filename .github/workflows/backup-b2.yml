@@ -2,8 +2,8 @@ name: Daily Backup to Backblaze B2
 
 on:
   schedule:
-    - cron: "0 */12 * * *"   # اجرای هر 12 ساعت (UTC)
-  workflow_dispatch:          # امکان اجرای دستی
+    - cron: "0 */12 * * *"
+  workflow_dispatch:
 
 concurrency:
   group: backup-b2
@@ -25,80 +25,41 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Preflight validation
-        run: |
-          set -euo pipefail
-          if [ -z "${B2_KEY_ID:-}" ] || [ -z "${B2_APP_KEY:-}" ]; then
-            echo "❌ Missing Backblaze secrets. Ensure B2_KEY_ID and B2_APP_KEY are set." >&2
-            exit 1
-          fi
-          echo "✅ Secrets validated."
 
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y mysql-client tar gzip coreutils
+          sudo apt-get install -y tar gzip coreutils
           curl -fsSL https://rclone.org/install.sh | sudo bash
 
-      - name: Configure rclone securely
+      - name: Configure rclone
         run: |
-          set -euo pipefail
           rclone config create viraai-b2 b2 account "$B2_KEY_ID" key "$B2_APP_KEY" --non-interactive
-          rclone lsd viraai-b2: || { echo "❌ Authorization failed"; exit 1; }
-          echo "✅ Rclone configured successfully."
+          rclone lsd viraai-b2: || exit 1
 
       - name: Prepare backup directory
         run: |
           mkdir -p $BACKUP_DIR
           rm -rf $BACKUP_DIR/*
 
-      - name: Backup database
-        run: |
-          TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-          mysqldump -u root -p"${{ secrets.DB_PASSWORD }}" viraai_io > $BACKUP_DIR/db-$TIMESTAMP.sql
-          echo "✅ Database backup created: db-$TIMESTAMP.sql"
-
-      - name: Backup source code
+      - name: Archive source code
         run: |
           TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
           tar --exclude=$EXCLUDE_DIRS -czf $BACKUP_DIR/src-$TIMESTAMP.tar.gz .
-          echo "✅ Source code archive created: src-$TIMESTAMP.tar.gz"
-
-      - name: Generate checksum manifest
-        run: |
           cd $BACKUP_DIR
-          sha256sum * > SHA256SUMS.txt
-          echo "✅ Checksum manifest generated."
+          sha256sum src-$TIMESTAMP.tar.gz > SHA256SUMS.txt
 
-      - name: Upload backups to B2
+      - name: Upload to B2
         run: |
-          DEST="viraai-b2:$B2_BUCKET/server-backups/"
-          rclone copy $BACKUP_DIR/ "$DEST" \
-            --transfers=4 \
-            --checkers=8 \
-            --fast-list \
-            --checksum \
-            --log-level INFO
-          echo "✅ Upload completed to $DEST"
+          rclone copy $BACKUP_DIR/ "viraai-b2:$B2_BUCKET/repo-backups/" \
+            --transfers=4 --checkers=8 --fast-list --checksum --log-level INFO
 
       - name: Verify upload
         run: |
-          DEST="viraai-b2:$B2_BUCKET/server-backups/"
-          rclone ls "$DEST" | tail -n 10
-          echo "✅ Verification complete."
+          rclone ls "viraai-b2:$B2_BUCKET/repo-backups/" | tail -n 10
 
-      - name: Upload backup artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: backup-${{ github.run_number }}
           path: $BACKUP_DIR
-          retention-days: 7
-
-      - name: Cleanup workspace
-        if: always()
-        run: |
-          rm -rf $BACKUP_DIR || true
-          echo "✅ Cleanup done."

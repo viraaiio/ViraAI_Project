@@ -2,13 +2,8 @@ name: Daily Backup to Backblaze B2
 
 on:
   schedule:
-    - cron: "0 */12 * * *"  # run every 12 hours (UTC)
-  workflow_dispatch:
-    inputs:
-      dry_run:
-        description: "Run without uploading (validation only)"
-        required: false
-        default: "false"
+    - cron: "0 */12 * * *"   # اجرای هر 12 ساعت (UTC)
+  workflow_dispatch:          # امکان اجرای دستی
 
 concurrency:
   group: backup-b2
@@ -19,23 +14,13 @@ permissions:
 
 jobs:
   backup:
-    name: Backup repository to B2
     runs-on: ubuntu-latest
     env:
-      # Backblaze credentials (must be set in repo Settings → Secrets and variables → Actions)
       B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
       B2_APP_KEY: ${{ secrets.B2_APP_KEY }}
       B2_BUCKET: viraai-backups
-
-      # Paths and naming
-      WORK_DIR: /tmp/viraai_backup_work
-      SRC_DIR: ${{ github.workspace }}
-      ARCHIVE_DIR: /tmp/viraai_backups
-      FILTER_FILE: /tmp/viraai_backup_work/excludes.txt
-
-      # Deterministic metadata for archives
-      BUILD_DATE: ${{ github.run_id }}
-      TZ: UTC
+      BACKUP_DIR: /tmp/viraai_backups
+      EXCLUDE_DIRS: '(node_modules|\.git|\.github|\.next|dist|coverage|\.cache)'
 
     steps:
       - name: Checkout repository
@@ -44,122 +29,76 @@ jobs:
           fetch-depth: 0
 
       - name: Preflight validation
-        shell: bash
         run: |
           set -euo pipefail
           if [ -z "${B2_KEY_ID:-}" ] || [ -z "${B2_APP_KEY:-}" ]; then
-            echo "Missing Backblaze secrets. Ensure B2_KEY_ID and B2_APP_KEY are set." >&2
+            echo "❌ Missing Backblaze secrets. Ensure B2_KEY_ID and B2_APP_KEY are set." >&2
             exit 1
           fi
-          if [ -z "${B2_BUCKET:-}" ]; then
-            echo "Missing B2 bucket name." >&2
-            exit 1
-          fi
-          echo "Preflight OK. Proceeding."
+          echo "✅ Secrets validated."
 
-      - name: Install dependencies (rclone, tar, gzip, coreutils)
-        shell: bash
+      - name: Install dependencies
         run: |
-          set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y tar gzip coreutils
+          sudo apt-get install -y mysql-client tar gzip coreutils
           curl -fsSL https://rclone.org/install.sh | sudo bash
-          rclone version
 
-      - name: Configure rclone (non-interactive)
-        shell: bash
+      - name: Configure rclone securely
         run: |
           set -euo pipefail
           rclone config create viraai-b2 b2 account "$B2_KEY_ID" key "$B2_APP_KEY" --non-interactive
-          # Sanity check: list buckets (will fail if creds invalid)
-          rclone lsd viraai-b2: | sed 's/.*//'
+          rclone lsd viraai-b2: || { echo "❌ Authorization failed"; exit 1; }
+          echo "✅ Rclone configured successfully."
 
-      - name: Prepare workspace and exclusions
-        shell: bash
+      - name: Prepare backup directory
         run: |
-          set -euo pipefail
-          mkdir -p "$WORK_DIR" "$ARCHIVE_DIR"
-          # Exclusions: common CI/build/vendor caches and VCS
-          cat > "$FILTER_FILE" <<'EOF'
-          - .git/**
-          - .github/**
-          - node_modules/**
-          - .next/**
-          - dist/**
-          - coverage/**
-          - .cache/**
-          - **/*.bak
-          - **/.DS_Store
-          EOF
-          echo "Exclusion rules created at $FILTER_FILE"
+          mkdir -p $BACKUP_DIR
+          rm -rf $BACKUP_DIR/*
 
-      - name: Create deterministic source archive
-        shell: bash
-        working-directory: ${{ env.SRC_DIR }}
+      - name: Backup database
         run: |
-          set -euo pipefail
-          TS=$(date -u +"%Y-%m-%d_%H-%M-%S")
-          ARCHIVE_NAME="src-${TS}.tar.gz"
-          # Create a file list honoring filters (portable approach)
-          # Use find + grep -v with patterns for simplicity on runner
-          find . -type f \
-            | grep -Ev '(^\./\.git/|^\./\.github/|^\./node_modules/|^\./\.next/|^\./dist/|^\./coverage/|^\./\.cache/|\.bak$|\.DS_Store$)' \
-            > "$WORK_DIR/include_files.txt"
+          TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+          mysqldump -u root -p"${{ secrets.DB_PASSWORD }}" viraai_io > $BACKUP_DIR/db-$TIMESTAMP.sql
+          echo "✅ Database backup created: db-$TIMESTAMP.sql"
 
-          # Create deterministic tar (fixed mtime/owner/group, numeric IDs)
-          tar \
-            --mtime="UTC 2000-01-01" \
-            --owner=0 --group=0 --numeric-owner \
-            --posix \
-            -czf "$ARCHIVE_DIR/$ARCHIVE_NAME" \
-            --files-from "$WORK_DIR/include_files.txt"
-
-          echo "Archive created: $ARCHIVE_DIR/$ARCHIVE_NAME"
+      - name: Backup source code
+        run: |
+          TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+          tar --exclude=$EXCLUDE_DIRS -czf $BACKUP_DIR/src-$TIMESTAMP.tar.gz .
+          echo "✅ Source code archive created: src-$TIMESTAMP.tar.gz"
 
       - name: Generate checksum manifest
-        shell: bash
         run: |
-          set -euo pipefail
-          cd "$ARCHIVE_DIR"
-          sha256sum *.tar.gz > SHA256SUMS.txt
-          ls -lh
+          cd $BACKUP_DIR
+          sha256sum * > SHA256SUMS.txt
+          echo "✅ Checksum manifest generated."
 
-      - name: Upload to B2 (rclone)
-        if: ${{ github.event.inputs.dry_run != 'true' }}
-        shell: bash
+      - name: Upload backups to B2
         run: |
-          set -euo pipefail
-          TS_PATH=$(date -u +"%Y/%m/%d")
-          DEST="viraai-b2:${B2_BUCKET}/repo-backups/${{ github.ref_name }}/${TS_PATH}/"
-          rclone copy "$ARCHIVE_DIR" "$DEST" \
+          DEST="viraai-b2:$B2_BUCKET/server-backups/"
+          rclone copy $BACKUP_DIR/ "$DEST" \
             --transfers=4 \
             --checkers=8 \
             --fast-list \
             --checksum \
-            --b2-version-at=now \
             --log-level INFO
-          echo "Uploaded to: $DEST"
+          echo "✅ Upload completed to $DEST"
 
-      - name: Verify upload (list latest files)
-        if: ${{ github.event.inputs.dry_run != 'true' }}
-        shell: bash
+      - name: Verify upload
         run: |
-          set -euo pipefail
-          TS_PATH=$(date -u +"%Y/%m/%d")
-          DEST="viraai-b2:${B2_BUCKET}/repo-backups/${{ github.ref_name }}/${TS_PATH}/"
-          rclone ls "$DEST" | tail -n 20
+          DEST="viraai-b2:$B2_BUCKET/server-backups/"
+          rclone ls "$DEST" | tail -n 10
+          echo "✅ Verification complete."
 
-      - name: Upload artifacts (archives and manifest)
+      - name: Upload backup artifacts
         uses: actions/upload-artifact@v4
         with:
           name: backup-${{ github.run_number }}
-          path: |
-            ${{ env.ARCHIVE_DIR }}/*.tar.gz
-            ${{ env.ARCHIVE_DIR }}/SHA256SUMS.txt
+          path: $BACKUP_DIR
           retention-days: 7
 
       - name: Cleanup workspace
         if: always()
-        shell: bash
         run: |
-          rm -rf "$WORK_DIR" "$ARCHIVE_DIR" || true
+          rm -rf $BACKUP_DIR || true
+          echo "✅ Cleanup done."

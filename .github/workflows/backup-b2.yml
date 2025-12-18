@@ -1,3 +1,6 @@
+# نسخه‌ی نهایی بدون اتصال به دیتابیس یا SSH
+# فقط بکاپ سورس‌کد و آپلود به B2
+
 name: Daily Backup to Backblaze B2
 
 on:

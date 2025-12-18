@@ -3,7 +3,7 @@ name: Daily Backup to Backblaze B2
 on:
   workflow_dispatch:        # اجرای دستی
   schedule:                 # اجرای زمان‌بندی‌شده
-    - cron: "0 0 * * *"     # هر روز ساعت 00:00 UTC (۳:۳۰ صبح ایران)
+    - cron: "0 */12 * * *"  # هر 12 ساعت
 
 permissions:
   contents: read
@@ -14,8 +14,8 @@ jobs:
     env:
       B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
       B2_APP_KEY: ${{ secrets.B2_APP_KEY }}
-      BACKUP_SOURCE: '.'
       B2_BUCKET: 'viraai-backups'
+      BACKUP_DIR: '/tmp/viraai_backups'
       EXCLUDE_DIRS: '(node_modules|\.git|\.github|\.next|dist|coverage|\.cache)'
 
     steps:
@@ -24,30 +24,41 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Python (for b2 CLI)
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Install b2 CLI
+      - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install b2
+          sudo apt-get update
+          sudo apt-get install -y mysql-client tar gzip
+          curl https://rclone.org/install.sh | sudo bash
 
-      - name: Authorize B2
+      - name: Configure rclone securely
         run: |
-          b2 authorize-account "${{ env.B2_KEY_ID }}" "${{ env.B2_APP_KEY }}"
+          rclone config create viraai-b2 b2 account $B2_KEY_ID key $B2_APP_KEY --non-interactive
 
-      - name: Run b2 sync (backup)
+      - name: Prepare backup directory
         run: |
-          # اجرای بکاپ با حذف پوشه‌های سنگین و فایل‌های .bak
-          b2 sync "${{ env.BACKUP_SOURCE }}" "b2://${{ env.B2_BUCKET }}" \
-            --exclude-dir-regex "${{ env.EXCLUDE_DIRS }}" \
-            --exclude-regex ".*\.bak" \
-            --delete | tee backup.log
+          mkdir -p $BACKUP_DIR
+          rm -rf $BACKUP_DIR/*
+
+      - name: Backup database
+        run: |
+          TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+          mysqldump -u root -p"${{ secrets.DB_PASSWORD }}" viraai_io > $BACKUP_DIR/db-$TIMESTAMP.sql
+
+      - name: Backup source code
+        run: |
+          TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+          tar --exclude=$EXCLUDE_DIRS -czf $BACKUP_DIR/src-$TIMESTAMP.tar.gz .
+
+      - name: Upload backups to B2
+        run: |
+          rclone copy $BACKUP_DIR/ viraai-b2:$B2_BUCKET/server-backups/ --transfers=4 --checkers=8 --log-level INFO
+
+      - name: Verify upload
+        run: |
+          rclone ls viraai-b2:$B2_BUCKET/server-backups/ | tail -n 10
 
       - name: Upload backup log as artifact
         uses: actions/upload-artifact@v4
         with:
           name: backup-log-${{ github.run_number }}
-          path: backup.log
+          path: $BACKUP_DIR

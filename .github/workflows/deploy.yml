@@ -1,48 +1,29 @@
-name: Deploy to Production (Zero-Downtime)
+name: Deploy via SSH (Custom Port 44888)
 
 on:
   push:
-    branches:
-      - main
-  workflow_dispatch:
+    branches: [ main ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Debug SSH key presence
+      # لود امن کلید در حافظه (بدون mkdir و بدون echo)
+      - name: Load SSH key into agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: |
+            ${{ secrets.SSH_PRIVATE_KEY }}
+
+      # اتصال واقعی به ویندوز سرور
+      - name: SSH connect to Windows Server
         run: |
-          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
-            echo "❌ SSH_PRIVATE_KEY is EMPTY"
-            exit 1
-          else
-            echo "✅ SSH_PRIVATE_KEY is PRESENT"
-            echo "🔑 First lines of key:"
-            echo "${{ secrets.SSH_PRIVATE_KEY }}" | head -n 5
-          fi
-
-      - name: Setup SSH key
-        run: |
-          mkdir -p $HOME/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > $HOME/.ssh/id_ed25519
-          chmod 600 $HOME/.ssh/id_ed25519
-          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> $HOME/.ssh/known_hosts
-          echo "✅ SSH key configured."
-
-      - name: Deploy to Windows server
-        run: |
-          ssh -i $HOME/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} powershell -Command "
-            Write-Host '📁 Switching to project directory...'
-            Set-Location -Path 'D:\\Projects\\ViraAI_Project\\Projects\\ViraAI_Project'
-
-            Write-Host '📥 Pulling latest code...'
-            git pull origin main
-
-            Write-Host '📦 Installing dependencies...'
-            npm install --production
-
-            Write-Host '🚀 Restart
+          ssh \
+            -p 44888 \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=no \
+            viraai.io@YOUR_SERVER_IP \
+            "whoami && hostname"

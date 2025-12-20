@@ -1,34 +1,8 @@
-name: Test SSH Connection
-
-on:
-  workflow_dispatch:
-
-jobs:
-  test-ssh:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Debug SSH key presence
-        run: |
-          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
-            echo "❌ SSH_PRIVATE_KEY is EMPTY"
-            exit 1
-          else
-            echo "✅ SSH_PRIVATE_KEY is PRESENT"
-            echo "🔑 First lines of key:"
-            echo "${{ secrets.SSH_PRIVATE_KEY }}" | head -n 5
-          fi
-
-      - name: Setup SSH key
-        run: |
-          mkdir -p /home/runner/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /home/runner/.ssh/id_ed25519
-          chmod 600 /home/runner/.ssh/id_ed25519
-          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> /home/runner/.ssh/known_hosts
-          echo "✅ SSH key configured."
-
-      - name: Test SSH connection
-        run: |
-          ssh -i /home/runner/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} powershell -Command "
-            Write-Host '✅ SSH connection successful.'
-          "
+- name: Setup SSH key
+  run: |
+    echo "🔍 HOME is: $HOME"
+    mkdir -p /home/runner/.ssh || mkdir -p ~/.ssh
+    echo "${{ secrets.SSH_PRIVATE_KEY }}" > /home/runner/.ssh/id_ed25519
+    chmod 600 /home/runner/.ssh/id_ed25519
+    ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> /home/runner/.ssh/known_hosts
+    echo "✅ SSH key configured."

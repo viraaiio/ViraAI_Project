@@ -27,15 +27,15 @@ jobs:
 
       - name: Setup SSH key
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          mkdir -p $HOME/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > $HOME/.ssh/id_ed25519
+          chmod 600 $HOME/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> $HOME/.ssh/known_hosts
           echo "✅ SSH key configured."
 
       - name: Deploy to Windows server
         run: |
-          ssh -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} powershell -Command "
+          ssh -i $HOME/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} powershell -Command "
             Write-Host '📁 Switching to project directory...'
             Set-Location -Path 'D:\\Projects\\ViraAI_Project\\Projects\\ViraAI_Project'
 
@@ -45,8 +45,4 @@ jobs:
             Write-Host '📦 Installing dependencies...'
             npm install --production
 
-            Write-Host '🚀 Restarting PM2...'
-            pm2 restart all; if (\$LASTEXITCODE -ne 0) { pm2 start ecosystem.config.js }
-
-            Write-Host '✅ Deployment complete.'
-          "
+            Write-Host '🚀 Restart

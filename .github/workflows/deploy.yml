@@ -18,13 +18,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Debug SSH key presence
+        run: |
+          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
+            echo "❌ SSH_PRIVATE_KEY is EMPTY"
+            exit 1
+          else
+            echo "✅ SSH_PRIVATE_KEY is PRESENT"
+            echo "🔑 First lines of key:"
+            echo "${{ secrets.SSH_PRIVATE_KEY }}" | head -n 5
+          fi
+
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
-          echo "✅ SSH key configured."
+          echo "SSH key configured."
 
       - name: Deploy to server
         run: |
@@ -32,7 +43,7 @@ jobs:
             set -euo pipefail
 
             echo "📁 Switching to project directory..."
-            cd "D:\Projects\ViraAI_Project\Projects\ViraAI_Project"
+            cd /d "D:\Projects\ViraAI_Project\Projects\ViraAI_Project"
 
             echo "📥 Pulling latest code..."
             git pull origin main

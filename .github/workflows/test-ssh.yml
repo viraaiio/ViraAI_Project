@@ -1,8 +1,0 @@
-- name: Setup SSH key
-  run: |
-    echo "🔍 HOME is: $HOME"
-    mkdir -p /home/runner/.ssh || mkdir -p ~/.ssh
-    echo "${{ secrets.SSH_PRIVATE_KEY }}" > /home/runner/.ssh/id_ed25519
-    chmod 600 /home/runner/.ssh/id_ed25519
-    ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> /home/runner/.ssh/known_hosts
-    echo "✅ SSH key configured."

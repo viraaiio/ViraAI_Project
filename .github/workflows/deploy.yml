@@ -25,5 +25,5 @@ jobs:
             -p 44888 \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=no \
-            viraai.io@YOUR_SERVER_IP \
+            viraai.io@107.189.23.167 \
             "whoami && hostname"

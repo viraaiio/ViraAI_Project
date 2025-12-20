@@ -1,159 +1,42 @@
-name: Deploy to production (zero-downtime, rollback)
+name: Deploy to Production (Zero-Downtime)
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
 
 concurrency:
   group: deploy-production
-  cancel-in-progress: false
-
-env:
-  HOST: viraai.io
-  USER: dev_user
-  PROJECT_PATH: /home/dev_user/ViraAI_Project
-  HEALTHCHECK_URL: https://viraai.io/health
-  SSH_KEY_PATH: ~/.ssh/id_ed25519
-  SSH_OPTIONS: "-o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=3"
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+
+    env:
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Setup Node + pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-        # If you need Node LTS explicitly:
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-
-      - name: Prepare SSH key and known_hosts
-        shell: bash
+      - name: Setup SSH key
         run: |
-          set -euo pipefail
           mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > "$SSH_KEY_PATH"
-          chmod 600 "$SSH_KEY_PATH"
-          # Pin server host keys to prevent MITM
-          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          echo "✅ SSH key and known_hosts configured."
 
-      - name: Verify SSH connectivity
-        shell: bash
+      - name: Deploy to server
         run: |
-          set -euo pipefail
-          ssh $SSH_OPTIONS -i "$SSH_KEY_PATH" "$USER@$HOST" 'echo "[OK] SSH to $(hostname) as $(whoami)"'
-
-      - name: Remote deploy (atomic, pm2 reload, healthcheck, rollback)
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          REMOTE="ssh $SSH_OPTIONS -i '$SSH_KEY_PATH' '$USER@$HOST'"
-          TS="$(date -u +%Y%m%d-%H%M%S)"
-
-          $REMOTE "bash -euo pipefail -c '
-            echo \"[INFO] Starting deploy at $TS\"
-            cd \"$PROJECT_PATH\"
-
-            echo \"[INFO] Capturing previous commit\"
-            PREV_COMMIT=\$(git rev-parse HEAD || echo \"NONE\")
-            echo \"[INFO] Previous commit: \$PREV_COMMIT\"
-
-            echo \"[INFO] Fetching origin and resetting to main\"
-            git fetch --all --prune
-            git checkout -f main
-            git reset --hard origin/main
-            git clean -fdx
-
-            echo \"[INFO] Creating pre-deploy backup (node_modules and ecosystem)\"
-            mkdir -p .deploy_backups
-            tar -czf .deploy_backups/backup-\$TS.tgz --ignore-failed-read \
-              package.json pnpm-lock.yaml ecosystem.config.js \
-              || true
-
-            echo \"[INFO] Installing dependencies (frozen lockfile)\"
-            corepack enable || true
-            pnpm install --frozen-lockfile
-
-            echo \"[INFO] Building application\"
-            if [ -f package.json ]; then
-              if jq -r '.scripts.build // empty' package.json >/dev/null 2>&1; then
-                pnpm run build
-              else
-                echo \"[WARN] No build script; skipping\"
-              fi
-            fi
-
-            echo \"[INFO] Reloading PM2 (zero-downtime)\"
-            if [ -f ecosystem.config.js ]; then
-              pm2 startOrReload ecosystem.config.js --update-env
-            else
-              # Fallback: try to restart all managed processes
-              pm2 reload all || pm2 restart all || true
-            fi
-            pm2 save || true
-
-            echo \"[INFO] Waiting for app to warm up\"
-            sleep 5
-
-            echo \"[INFO] Healthcheck\"
-            STATUS=0
-            for i in 1 2 3 4 5; do
-              CODE=\$(curl -sk --max-time 5 -o /dev/null -w \"%{http_code}\" \"$HEALTHCHECK_URL\" || echo 000)
-              echo \"[HEALTH] Attempt \$i: HTTP \$CODE\"
-              if [ \"\$CODE\" = \"200\" ] || [ \"\$CODE\" = \"204\" ]; then
-                STATUS=1
-                break
-              fi
-              sleep 3
-            done
-
-            if [ \"\$STATUS\" = \"1\" ]; then
-              echo \"[SUCCESS] Healthcheck passed\"
-              exit 0
-            fi
-
-            echo \"[ERROR] Healthcheck failed — starting rollback\"
-            if [ \"\$PREV_COMMIT\" != \"NONE\" ]; then
-              git reset --hard \"\$PREV_COMMIT\"
-              echo \"[INFO] Restored previous commit: \$PREV_COMMIT\"
-              if [ -f ecosystem.config.js ]; then
-                pm2 startOrReload ecosystem.config.js --update-env
-              else
-                pm2 reload all || pm2 restart all || true
-              fi
-              pm2 save || true
-            else
-              echo \"[WARN] No previous commit — cannot rollback code\"
-            fi
-
-            echo \"[INFO] Post-rollback healthcheck\"
-            CODE=\$(curl -sk --max-time 5 -o /dev/null -w \"%{http_code}\" \"$HEALTHCHECK_URL\" || echo 000)
-            echo \"[HEALTH] After rollback: HTTP \$CODE\"
-            if [ \"\$CODE\" = \"200\" ] || [ \"\$CODE\" = \"204\" ]; then
-              echo \"[RECOVERED] Rollback restored service\"
-              exit 1  # fail workflow so issue can be tracked, but service is up
-            fi
-
-            echo \"[CRITICAL] Service unhealthy after rollback\"
-            exit 2
-          '"
-
-      - name: Post-deploy summary
-        if: always()
-        shell: bash
-        run: |
-          echo "Deploy finished at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          ssh -i ~/.ssh/id_ed25519 "$SSH_USER@$SSH_HOST" << 'EOF'
+            set -euo pipefail
+            cd /home/dev_user/viraai_project
+            git pull origin main
+            npm install --production
+            pm2 restart all
+            echo "✅ Deployment complete."
+          EOF

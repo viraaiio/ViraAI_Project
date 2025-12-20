@@ -24,24 +24,24 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
-          echo "✅ SSH key configured."
+          echo "SSH key configured."
 
       - name: Deploy to server
         run: |
           ssh -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             set -euo pipefail
 
-            echo "📁 Switching to project directory..."
+            echo "Switching to project directory..."
             cd /home/dev_user/viraai_project
 
-            echo "📥 Pulling latest code..."
+            echo "Pulling latest code..."
             git pull origin main
 
-            echo "📦 Installing dependencies..."
+            echo "Installing dependencies..."
             npm install --production
 
-            echo "🚀 Restarting PM2..."
+            echo "Restarting PM2..."
             pm2 restart all || pm2 start ecosystem.config.js
 
-            echo "✅ Deployment complete."
+            echo "Deployment complete."
           EOF

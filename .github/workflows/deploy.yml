@@ -14,10 +14,6 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
-    env:
-      SSH_USER: ${{ secrets.SSH_USER }}
-      SSH_HOST: ${{ secrets.SSH_HOST }}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -27,16 +23,25 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
-          echo "✅ SSH key and known_hosts configured."
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          echo "SSH key configured."
 
       - name: Deploy to server
         run: |
-          ssh -i ~/.ssh/id_ed25519 "$SSH_USER@$SSH_HOST" << 'EOF'
+          ssh -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             set -euo pipefail
+
+            # مسیر پروژه — اگر فرق دارد اصلاح کن
             cd /home/dev_user/viraai_project
+
+            echo "Pulling latest code..."
             git pull origin main
+
+            echo "Installing dependencies..."
             npm install --production
-            pm2 restart all
-            echo "✅ Deployment complete."
+
+            echo "Restarting PM2..."
+            pm2 restart all || pm2 start ecosystem.config.js
+
+            echo "Deployment complete."
           EOF

@@ -21,14 +21,14 @@ jobs:
 
       - name: Setup SSH key
         run: |
-          mkdir -p $HOME/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > $HOME/.ssh/id_ed25519
-          chmod 600 $HOME/.ssh/id_ed25519
-          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> $HOME/.ssh/known_hosts
+          mkdir -p /home/runner/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /home/runner/.ssh/id_ed25519
+          chmod 600 /home/runner/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> /home/runner/.ssh/known_hosts
           echo "✅ SSH key configured."
 
       - name: Test SSH connection
         run: |
-          ssh -i $HOME/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} powershell -Command "
+          ssh -i /home/runner/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} powershell -Command "
             Write-Host '✅ SSH connection successful.'
           "

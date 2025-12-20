@@ -6,10 +6,6 @@ on:
       - main
   workflow_dispatch:
 
-concurrency:
-  group: deploy-production
-  cancel-in-progress: true
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -35,24 +31,22 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
-          echo "SSH key configured."
+          echo "✅ SSH key configured."
 
-      - name: Deploy to server
+      - name: Deploy to Windows server
         run: |
-          ssh -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
-            set -euo pipefail
+          ssh -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} powershell -Command "
+            Write-Host '📁 Switching to project directory...'
+            Set-Location -Path 'D:\\Projects\\ViraAI_Project\\Projects\\ViraAI_Project'
 
-            echo "📁 Switching to project directory..."
-            cd /d "D:\Projects\ViraAI_Project\Projects\ViraAI_Project"
-
-            echo "📥 Pulling latest code..."
+            Write-Host '📥 Pulling latest code...'
             git pull origin main
 
-            echo "📦 Installing dependencies..."
+            Write-Host '📦 Installing dependencies...'
             npm install --production
 
-            echo "🚀 Restarting PM2..."
-            pm2 restart all || pm2 start ecosystem.config.js
+            Write-Host '🚀 Restarting PM2...'
+            pm2 restart all; if (\$LASTEXITCODE -ne 0) { pm2 start ecosystem.config.js }
 
-            echo "✅ Deployment complete."
-          EOF
+            Write-Host '✅ Deployment complete.'
+          "

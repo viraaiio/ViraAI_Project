@@ -1,7 +1,8 @@
 name: Deploy via SSH (Custom Port 44888)
 
 on:
-  push:
+  workflow_dispatch:  # اجرای دستی از طریق دکمه Run workflow
+  push:               # اجرای خودکار هنگام push به main
     branches: [ main ]
 
 jobs:
@@ -9,16 +10,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      # لود امن کلید در حافظه (بدون mkdir و بدون echo)
       - name: Load SSH key into agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: |
             ${{ secrets.SSH_PRIVATE_KEY }}
 
-      # اتصال واقعی به ویندوز سرور
       - name: SSH connect to Windows Server
         run: |
           ssh \

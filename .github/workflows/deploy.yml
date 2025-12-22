@@ -1,8 +1,8 @@
 name: Deploy via SSH (Custom Port 44888)
 
 on:
-  workflow_dispatch:  # اجرای دستی از طریق دکمه Run workflow
-  push:               # اجرای خودکار هنگام push به main
+  workflow_dispatch:
+  push:
     branches: [ main ]
 
 jobs:
@@ -25,5 +25,5 @@ jobs:
             -p 44888 \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=no \
-            viraai.io@107.189.23.167 \
+            ${{ secrets.SSH_USER }}@107.189.23.167 \
             "whoami && hostname"

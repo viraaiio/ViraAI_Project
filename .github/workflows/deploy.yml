@@ -1,21 +1,11 @@
-name: Deploy
+- name: Setup SSH key
+  shell: powershell
+  run: |
+    Set-Content -Path key.pem -Value "${{ secrets.SSH_PRIVATE_KEY }}"
+    icacls key.pem /inheritance:r
+    icacls key.pem /grant:r "$($env:USERNAME):(R)"
 
-on:
-  workflow_dispatch:
-
-jobs:
-  deploy:
-    runs-on: self-hosted
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Setup SSH key
-        run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
-          chmod 600 key.pem
-
-      - name: Test SSH connection
-        run: |
-          ssh -p 44888 -i key.pem ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "echo Connected!"
+- name: Test SSH connection
+  shell: powershell
+  run: |
+    ssh -p 44888 -i key.pem ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "echo Connected!"

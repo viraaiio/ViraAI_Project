@@ -12,15 +12,10 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Setup SSH key
-        shell: powershell
         run: |
-          $keyPath = "$env:GITHUB_WORKSPACE\key.pem"
-          Set-Content -Path $keyPath -Value "${{ secrets.SSH_PRIVATE_KEY }}"
-          icacls $keyPath /inheritance:r
-          icacls $keyPath /grant:r "$($env:USERNAME):(R)"
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
+          chmod 600 key.pem
 
       - name: Test SSH connection
-        shell: powershell
         run: |
-          $keyPath = "$env:GITHUB_WORKSPACE\key.pem"
-          ssh -p 44888 -i $keyPath ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "echo Connected!"
+          ssh -i key.pem -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "echo Connected!"

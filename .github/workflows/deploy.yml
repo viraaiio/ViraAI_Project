@@ -26,7 +26,7 @@ jobs:
       - name: Test SSH connection
         run: |
           echo "Testing SSH connection..."
-          ssh -i key.pem -p ${{ secrets.SSH_PORT }} \
+          ssh -i key.pem -o IdentitiesOnly=yes -p ${{ secrets.SSH_PORT }} \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
             "echo Connected successfully!"
         shell: bash
@@ -34,7 +34,7 @@ jobs:
       - name: Deploy to server
         run: |
           echo "Starting deployment..."
-          ssh -i key.pem -p ${{ secrets.SSH_PORT }} \
+          ssh -i key.pem -o IdentitiesOnly=yes -p ${{ secrets.SSH_PORT }} \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
             "cd /var/www/viraai && git pull && pm2 restart all"
         shell: bash

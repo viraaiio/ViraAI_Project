@@ -26,7 +26,13 @@ jobs:
       - name: Test SSH connection
         run: |
           echo "Testing SSH connection..."
-          SSH_AUTH_SOCK=none ssh -i key.pem -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -p ${{ secrets.SSH_PORT }} \
+          SSH_AUTH_SOCK=none ssh -F /dev/null \
+            -i key.pem \
+            -o IdentitiesOnly=yes \
+            -o PubkeyAuthentication=yes \
+            -o PreferredAuthentications=publickey \
+            -o StrictHostKeyChecking=yes \
+            -p ${{ secrets.SSH_PORT }} \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
             "echo Connected successfully!"
         shell: bash
@@ -34,7 +40,13 @@ jobs:
       - name: Deploy to server
         run: |
           echo "Starting deployment..."
-          SSH_AUTH_SOCK=none ssh -i key.pem -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -p ${{ secrets.SSH_PORT }} \
+          SSH_AUTH_SOCK=none ssh -F /dev/null \
+            -i key.pem \
+            -o IdentitiesOnly=yes \
+            -o PubkeyAuthentication=yes \
+            -o PreferredAuthentications=publickey \
+            -o StrictHostKeyChecking=yes \
+            -p ${{ secrets.SSH_PORT }} \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
             "cd /var/www/viraai && git pull && pm2 restart all"
         shell: bash

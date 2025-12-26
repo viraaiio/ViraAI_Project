@@ -12,8 +12,8 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Deploy to server
+        working-directory: /home/dev_user/viraai
         run: |
           echo "Starting deployment..."
-          cd /var/www/viraai
           git pull
           pm2 restart all

@@ -11,42 +11,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup SSH key
-        run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
-          chmod 600 key.pem
-        shell: bash
-
-      - name: Add known hosts (prevent MITM attacks)
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
-        shell: bash
-
-      - name: Test SSH connection
-        run: |
-          echo "Testing SSH connection..."
-          SSH_AUTH_SOCK=none ssh -F /dev/null \
-            -i key.pem \
-            -o IdentitiesOnly=yes \
-            -o PubkeyAuthentication=yes \
-            -o PreferredAuthentications=publickey \
-            -o StrictHostKeyChecking=yes \
-            -p ${{ secrets.SSH_PORT }} \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "echo Connected successfully!"
-        shell: bash
-
       - name: Deploy to server
         run: |
           echo "Starting deployment..."
-          SSH_AUTH_SOCK=none ssh -F /dev/null \
-            -i key.pem \
-            -o IdentitiesOnly=yes \
-            -o PubkeyAuthentication=yes \
-            -o PreferredAuthentications=publickey \
-            -o StrictHostKeyChecking=yes \
-            -p ${{ secrets.SSH_PORT }} \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "cd /var/www/viraai && git pull && pm2 restart all"
-        shell: bash
+          cd /var/www/viraai
+          git pull
+          pm2 restart all

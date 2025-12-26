@@ -16,4 +16,4 @@ jobs:
         run: |
           echo "Starting deployment..."
           git pull
-          pm2 restart all
+          pm2 restart index

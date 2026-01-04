@@ -1,6 +1,9 @@
 name: Deploy
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -9,11 +12,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
 
-      - name: Deploy to server
-        working-directory: /home/dev_user/viraai
+      - name: Restart PM2 process
+        working-directory: /home/dev_user/ViraAI_Project
         run: |
           echo "Starting deployment..."
-          git pull
-          pm2 restart index
+          pm2 list
+          pm2 restart viraai || pm2 start index.js --name viraai
+          pm2 status

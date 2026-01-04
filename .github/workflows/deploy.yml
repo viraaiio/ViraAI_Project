@@ -11,16 +11,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup SSH key
-        shell: powershell
+      - name: Deploy to server
+        working-directory: /home/dev_user/viraai
         run: |
-          $keyPath = "$env:GITHUB_WORKSPACE\key.pem"
-          Set-Content -Path $keyPath -Value "${{ secrets.SSH_PRIVATE_KEY }}"
-          icacls $keyPath /inheritance:r
-          icacls $keyPath /grant:r "$($env:USERNAME):(R)"
-
-      - name: Test SSH connection
-        shell: powershell
-        run: |
-          $keyPath = "$env:GITHUB_WORKSPACE\key.pem"
-          ssh -p 44888 -i $keyPath ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "echo Connected!"
+          echo "Starting deployment..."
+          git pull
+          pm2 restart index

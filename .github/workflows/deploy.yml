@@ -1,4 +1,4 @@
-name: Deploy
+name: Deploy with Backup and Alerts
 
 on:
   push:
@@ -10,14 +10,44 @@ jobs:
   deploy:
     runs-on: self-hosted
 
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Notify start to Telegram
+        run: |
+          curl -s -X POST https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage \
+            -d chat_id=${TELEGRAM_CHAT_ID} \
+            -d text="🚀 Deployment started for ViraAI at $(date)"
+
+      - name: Backup before deploy
+        working-directory: /home/dev_user/ViraAI_Project
+        run: |
+          echo "🔄 Creating backup before deployment..."
+          tar -czf /tmp/viraai-backup-$(date +%Y%m%d-%H%M%S).tar.gz . || echo "⚠️ Backup failed"
+
       - name: Restart PM2 process
         working-directory: /home/dev_user/ViraAI_Project
         run: |
-          echo "Starting deployment..."
+          echo "🔁 Restarting PM2 process..."
           pm2 list
           pm2 restart viraai || pm2 start index.js --name viraai
           pm2 status
+
+      - name: Notify success to Telegram
+        if: success()
+        run: |
+          curl -s -X POST https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage \
+            -d chat_id=${TELEGRAM_CHAT_ID} \
+            -d text="✅ Deployment completed successfully for ViraAI at $(date)"
+
+      - name: Notify failure to Telegram
+        if: failure()
+        run: |
+          curl -s -X POST https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage \
+            -d chat_id=${TELEGRAM_CHAT_ID} \
+            -d text="❌ Deployment failed for ViraAI at $(date)"
